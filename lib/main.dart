@@ -151,6 +151,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   bool _showPlayPause = false;
   bool _isPlaying = true;
 
+  final TikTokController _controller = Get.find<TikTokController>();
+
   @override
   void initState() {
     super.initState();
@@ -198,6 +200,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onDoubleTapDown: (details) {
+        _controller.addHeart(details.globalPosition);
+      },
       onTap: _togglePlayPause,
       child: Stack(
         alignment: Alignment.center,
@@ -225,50 +230,23 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
               size: 100,
             ),
           ),
-          Positioned(
-            bottom: 100,
-            left: 20,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '@Username',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Caption goes here...',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.music_note, color: Colors.white, size: 16),
-                    SizedBox(width: 4),
-                    Text(
-                      'Song Name - Artist',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          Obx(() {
+            return Stack(
+              children: _controller.hearts
+                  .map((heart) => Positioned(
+                left: heart.position.dx - 15,
+                top: heart.position.dy - 15,
+                child: heart.build(),
+              ))
+                  .toList(),
+            );
+          }),
         ],
       ),
     );
   }
 }
+
 
 class TikTokController extends GetxController {
   final PageController pageController = PageController();
@@ -284,9 +262,48 @@ class TikTokController extends GetxController {
     selectedIndex.value = index;
   }
 
+  final RxList<Heart> hearts = <Heart>[].obs;
+
+  void addHeart(Offset position) {
+    final heart = Heart(position: position);
+    hearts.add(heart);
+
+    Future.delayed(Duration(milliseconds: 800), () {
+      hearts.remove(heart);
+    });
+  }
+
   @override
   void onClose() {
     pageController.dispose();
     super.onClose();
+  }
+}
+class Heart {
+  final Offset position;
+  final RxDouble opacity = 1.0.obs;
+  final RxDouble yOffset = 0.0.obs;
+
+  Heart({required this.position}) {
+    _animate();
+  }
+
+  void _animate() async {
+    for (double i = 0; i < 1; i += 0.02) {
+      await Future.delayed(Duration(milliseconds: 16));
+      yOffset.value -= 3;
+      opacity.value -= 0.02;
+    }
+  }
+
+  Widget build() {
+    return Obx(() => AnimatedContainer(
+      duration: Duration(milliseconds: 500),
+      transform: Matrix4.translationValues(0, yOffset.value, 0),
+      child: Opacity(
+        opacity: opacity.value.clamp(0, 1),
+        child: Icon(Icons.favorite, color: Colors.red, size: 50),
+      ),
+    ));
   }
 }
