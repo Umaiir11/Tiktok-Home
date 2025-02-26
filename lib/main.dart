@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:video_player/video_player.dart';
 
 void main() {
   runApp(MyApp());
@@ -12,6 +13,7 @@ class MyApp extends StatelessWidget {
       title: 'TikTok Clone',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: Colors.black,
       ),
       home: TikTokHomeScreen(),
     );
@@ -29,9 +31,9 @@ class TikTokHomeScreen extends StatelessWidget {
           PageView.builder(
             controller: _controller.pageController,
             scrollDirection: Axis.vertical,
-            itemCount: _controller.imageUrls.length,
+            itemCount: _controller.videoUrls.length,
             itemBuilder: (context, index) {
-              return _buildVideoItem(_controller.imageUrls[index]);
+              return VideoPlayerWidget(videoUrl: _controller.videoUrls[index]);
             },
           ),
           Positioned(
@@ -46,7 +48,9 @@ class TikTokHomeScreen extends StatelessWidget {
                   child: Obx(() => Text(
                     'Following',
                     style: TextStyle(
-                      color: _controller.selectedIndex.value == 0 ? Colors.white : Colors.grey,
+                      color: _controller.selectedIndex.value == 0
+                          ? Colors.white
+                          : Colors.grey,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -57,7 +61,9 @@ class TikTokHomeScreen extends StatelessWidget {
                   child: Obx(() => Text(
                     'For You',
                     style: TextStyle(
-                      color: _controller.selectedIndex.value == 1 ? Colors.white : Colors.grey,
+                      color: _controller.selectedIndex.value == 1
+                          ? Colors.white
+                          : Colors.grey,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -127,67 +133,139 @@ class TikTokHomeScreen extends StatelessWidget {
       )),
     );
   }
+}
 
-  Widget _buildVideoItem(String imageUrl) {
-    return Stack(
-      children: [
-        Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          height: double.infinity,
-          width: double.infinity,
-          alignment: Alignment.center,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                    : null,
+class VideoPlayerWidget extends StatefulWidget {
+  final String videoUrl;
+
+  VideoPlayerWidget({required this.videoUrl});
+
+  @override
+  _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
+    with SingleTickerProviderStateMixin {
+  late VideoPlayerController _videoController;
+  late AnimationController _animationController;
+  bool _showPlayPause = false;
+  bool _isPlaying = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _videoController = VideoPlayerController.network(widget.videoUrl)
+      ..initialize().then((_) {
+        setState(() {});
+        _videoController.play();
+        _isPlaying = true;
+      });
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 300),
+    );
+  }
+
+  @override
+  void dispose() {
+    _videoController.dispose();
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _togglePlayPause() {
+    setState(() {
+      _showPlayPause = true;
+      if (_videoController.value.isPlaying) {
+        _videoController.pause();
+        _isPlaying = false;
+      } else {
+        _videoController.play();
+        _isPlaying = true;
+      }
+      _animationController.forward(from: 0);
+      Future.delayed(Duration(seconds: 1), () {
+        if (mounted) {
+          setState(() {
+            _showPlayPause = false;
+          });
+        }
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _togglePlayPause,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          _videoController.value.isInitialized
+              ? SizedBox.expand(
+            child: FittedBox(
+              fit: _videoController.value.size.aspectRatio > 1
+                  ? BoxFit.contain
+                  : BoxFit.cover,
+              child: SizedBox(
+                width: _videoController.value.size.width,
+                height: _videoController.value.size.height,
+                child: VideoPlayer(_videoController),
               ),
-            );
-          },
-        ),
-        Positioned(
-          bottom: 100,
-          left: 20,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '@Username',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Caption goes here...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.music_note, color: Colors.white, size: 16),
-                  SizedBox(width: 4),
-                  Text(
-                    'Song Name - Artist',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
+          )
+              : Center(child: CircularProgressIndicator()),
+          AnimatedOpacity(
+            opacity: _showPlayPause ? 1.0 : 0.0,
+            duration: Duration(milliseconds: 300),
+            child: Icon(
+              _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
+              color: Colors.white.withOpacity(0.8),
+              size: 100,
+            ),
           ),
-        ),
-      ],
+          Positioned(
+            bottom: 100,
+            left: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '@Username',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Caption goes here...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.music_note, color: Colors.white, size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'Song Name - Artist',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -195,12 +273,11 @@ class TikTokHomeScreen extends StatelessWidget {
 class TikTokController extends GetxController {
   final PageController pageController = PageController();
   final RxInt selectedIndex = 0.obs;
-  final List<String> imageUrls = [
-    'https://images.unsplash.com/photo-1724583698704-94b3f4771c58?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://images.unsplash.com/photo-1740015389539-b191940e61ee?q=80&w=1980&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://images.unsplash.com/photo-1739286955022-569369156bc4?q=80&w=1976&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://images.unsplash.com/photo-1732813963186-f03b882873e6?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    // Add more image URLs as needed
+  final List<String> videoUrls = [
+    'https://videos.pexels.com/video-files/5648482/5648482-uhd_2732_1440_25fps.mp4',
+    'https://videos.pexels.com/video-files/5659595/5659595-uhd_1440_2732_25fps.mp4',
+    'https://videos.pexels.com/video-files/30835589/13190162_1080_1920_30fps.mp4',
+    'https://videos.pexels.com/video-files/11038949/11038949-hd_1920_1080_24fps.mp4',
   ];
 
   void changeTab(int index) {
