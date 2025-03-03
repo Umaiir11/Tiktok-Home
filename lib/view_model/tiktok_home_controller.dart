@@ -1,9 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:get/get_state_manager/src/simple/get_controllers.dart';
 
+import '../view/camera_view.dart';
 import '../widgets/heart_widget.dart';
 
 class TikTokController extends GetxController {
@@ -16,8 +19,12 @@ class TikTokController extends GetxController {
     'https://videos.pexels.com/video-files/11038949/11038949-hd_1920_1080_24fps.mp4',
   ];
 
-  void changeTab(int index) {
-    selectedIndex.value = index;
+  void changeTab(int index) async {
+    if (index == 2) {
+      // Open camera when Add button is tapped
+      Get.to(() => CameraUI());    } else {
+      selectedIndex.value = index;
+    }
   }
 
   final RxList<Heart> hearts = <Heart>[].obs;
