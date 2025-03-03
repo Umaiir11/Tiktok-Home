@@ -36,7 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   video_player:
   get:
-  camerawesome: ^2.1.0
+  path_provider:
+  camera: ^0.11.1
 
 dev_dependencies:
   flutter_test:
